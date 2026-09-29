@@ -1,0 +1,89 @@
+# ==========================================
+# AI Voice SaaS - Git Ignore
+# ==========================================
+
+# ---------- Environment / Secrets ----------
+.env
+.env.*
+!.env.example
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# ---------- Django ----------
+*.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# ---------- Node / React ----------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Vite
+frontend/dist/
+frontend/.vite/
+
+# ---------- IDE / Editors ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Generated Audio / AI Files ----------
+generated_audio/
+generated_audio_temp/
+voice_samples_temp/
+model_cache/
+
+# Large model files
+*.ckpt
+*.pth
+*.pt
+*.safetensors
+*.bin
+
+# ---------- Temporary Files ----------
+tmp/
+temp/
+*.tmp
+
+# ---------- Testing ----------
+.pytest_cache/
+coverage.xml
+
+# ---------- Celery ----------
+celerybeat-schedule
+celerybeat.pid
+
+# ---------- Local Docker ----------
+docker-data/
+
+# ---------- Project-specific ----------
+*.local
