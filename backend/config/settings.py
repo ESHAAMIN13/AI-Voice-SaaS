@@ -177,8 +177,16 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
+
     # Third-party
     "rest_framework",
+    # Local apps
+    "apps.accounts",
+    "apps.voices",
+    "apps.generations",
+    "apps.usage",
+    "apps.admin_panel",
 ]
 
 MIDDLEWARE = [
@@ -246,3 +254,14 @@ STATIC_URL = "static/"
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    # All errors use {"success": false, "message": ..., "errors": ...}
+    "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
+    # JSON only (no browsable HTML API)
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    # Secure by default: an endpoint is private unless it says AllowAny
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+}
