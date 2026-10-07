@@ -1,24 +1,17 @@
-function App() {
+import { Mic } from 'lucide-react'
+
+export default function App() {
   return (
-    <main className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-2xl">
-        <h1 className="text-3xl font-bold text-slate-900">
-          AI Voice SaaS
-        </h1>
-
-        <p className="mt-3 text-slate-600">
-          Tailwind CSS is working successfully.
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl bg-white p-8 shadow-lg">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+          <Mic size={28} />
+        </div>
+        <h1 className="text-2xl font-semibold text-slate-900">AI Voice Studio</h1>
+        <p className="text-center text-sm text-slate-500">
+          Frontend setup is working. Tailwind and Lucide icons are ready.
         </p>
-
-        <button
-          type="button"
-          className="mt-6 rounded-lg bg-violet-600 px-5 py-3 font-semibold text-white transition hover:bg-violet-700"
-        >
-          Tailwind Test
-        </button>
       </div>
-    </main>
+    </div>
   )
 }
-
-export default App
