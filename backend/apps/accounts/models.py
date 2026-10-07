@@ -62,3 +62,15 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
         # Emails are stored in lowercase so "A@x.com" and "a@x.com" are the same user.
         self.email = self.email.strip().lower()
         super().save(*args, **kwargs)
+
+
+
+class Profile(BaseModel):
+    """Extra user details kept separate from the login/auth data."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    full_name = models.CharField(max_length=150, blank=True)
+    preferred_language = models.CharField(max_length=10, default="en")
+
+    def __str__(self):
+        return f"Profile of {self.user.email}"
