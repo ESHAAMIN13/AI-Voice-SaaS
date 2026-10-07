@@ -33,4 +33,6 @@ User, Profile, VoiceProfile, VoiceSample, Generation, GeneratedAudio,
 UsageRecord. Future: Plan, Subscription, Payment, Notification, AdminActionLog.
 
 ## Status
-Django still uses SQLite until Phase 10.
+Phase 11 complete: models migrated to Supabase (16 tables: 7 project models,
+the rest are Django built-ins). Model behaviour is checked by
+`python scripts/check_models.py` (runs in a rolled-back transaction).
