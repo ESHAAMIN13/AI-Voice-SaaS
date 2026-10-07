@@ -76,14 +76,13 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
-# Temporary SQLite. Replaced by Supabase PostgreSQL in Phase 10.
+# Database
+# Supabase PostgreSQL through the session pooler. The URL comes from .env.
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": env.db("DATABASE_URL"),
 }
+DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 
 
 # Password validation
