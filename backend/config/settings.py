@@ -4,6 +4,8 @@ Django settings for the AI Voice SaaS backend.
 Environment-specific values are read from backend/.env (never commit that file).
 """
 
+from datetime import timedelta
+
 from pathlib import Path
 
 import environ
@@ -34,6 +36,7 @@ INSTALLED_APPS = [
 
     # Third-party
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     # Local apps
     "apps.accounts",
@@ -112,13 +115,35 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # Django REST Framework
+# Django REST Framework
 REST_FRAMEWORK = {
     # All errors use {"success": false, "message": ..., "errors": ...}
     "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
     # JSON only (no browsable HTML API)
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    # Every request is checked for a valid JWT access token
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
     # Secure by default: an endpoint is private unless it says AllowAny
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    # Rate limits, applied per IP by views that set a throttle_scope
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "5/min",
+        "register": "10/hour",
+    },
+}
+
+# JWT settings (decision J2)
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    # Every refresh gives a new refresh token and the old one is blacklisted,
+    # so a stolen refresh token works only once.
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 # CORS: only our own frontend may call the API from a browser
