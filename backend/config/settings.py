@@ -181,6 +181,7 @@ INSTALLED_APPS = [
 
     # Third-party
     "rest_framework",
+    "corsheaders",
     # Local apps
     "apps.accounts",
     "apps.voices",
@@ -190,6 +191,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -265,3 +268,6 @@ REST_FRAMEWORK = {
     # Secure by default: an endpoint is private unless it says AllowAny
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
 }
+
+# CORS: only our own frontend may call the API from a browser
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
