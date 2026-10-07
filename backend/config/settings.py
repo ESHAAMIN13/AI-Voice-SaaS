@@ -123,3 +123,6 @@ REST_FRAMEWORK = {
 
 # CORS: only our own frontend may call the API from a browser
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
+# Use our own User model (must be set before the first migration)
+AUTH_USER_MODEL = "accounts.User"
