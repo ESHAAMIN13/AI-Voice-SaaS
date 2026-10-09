@@ -1,6 +1,6 @@
 from django.contrib.auth.models import update_last_login
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed , ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -53,7 +53,7 @@ class LoginView(PublicAPIView):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         try:
             serializer.is_valid(raise_exception=True)
-        except Exception:
+        except ValidationError:
             # Wrong credentials are a 401, not a field-level 400
             raise AuthenticationFailed("Invalid email or password.")
         user = serializer.validated_data["user"]
