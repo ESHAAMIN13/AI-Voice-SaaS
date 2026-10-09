@@ -36,3 +36,31 @@ UsageRecord. Future: Plan, Subscription, Payment, Notification, AdminActionLog.
 Phase 11 complete: models migrated to Supabase (16 tables: 7 project models,
 the rest are Django built-ins). Model behaviour is checked by
 `python scripts/check_models.py` (runs in a rolled-back transaction).
+
+
+## Phase 12 additions: JWT blacklist tables
+
+Added by `rest_framework_simplejwt.token_blacklist` (migrated in Phase 12).
+Used for refresh-token rotation and logout.
+
+| Table | Purpose |
+|---|---|
+| `token_blacklist_outstandingtoken` | One row per refresh token issued: `user`, `jti`, `token`, `created_at`, `expires_at` |
+| `token_blacklist_blacklistedtoken` | One row per refresh token that is no longer valid: `token` (links to the outstanding row), `blacklisted_at` |
+
+Notes:
+- The outstanding table stores the full refresh token string, so it is sensitive.
+  It must never be reachable through Supabase's Data API.
+- Rows are created on login and on every refresh (rotation).
+- Cleanup of expired rows is not set up yet. Planned: run
+  `python manage.py flushexpiredtokens` on a schedule (Phase 46, production).
+
+## Test database
+
+`python manage.py test apps.accounts --keepdb` uses a separate database named
+`test_postgres` on the same Supabase server. Do not delete it. Project data
+is never touched by tests. Running without `--keepdb` makes the cleanup step
+fail on Supabase's pooler (the session stays open), so always use `--keepdb`.
+
+## Status (updated)
+Phase 12: 2 token_blacklist tables added on top of the 16 from Phase 11.
