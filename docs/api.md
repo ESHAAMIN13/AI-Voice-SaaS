@@ -90,3 +90,19 @@ Private. Body (partial allowed): `full_name`, `preferred_language`.
 
 Access token is kept in memory, refresh token in localStorage.
 All token code lives in one file: `frontend/src/services/tokenStorage.js`.
+
+
+
+
+
+### GET /api/admin/ping/
+Admin only (`role = ADMIN`). Temporary endpoint that proves the admin permission works.
+
+| Status | Meaning |
+|---|---|
+| 200 | `data` = `status`, `role` |
+| 401 | Missing or invalid access token. |
+| 403 | Logged in, but role is not ADMIN. |
+
+Permission class: `apps.accounts.permissions.IsAdminRole` (checks `role`, not `is_staff`).
+Admin users are created with `python manage.py createsuperuser` (role becomes ADMIN automatically). There is no API to become admin.

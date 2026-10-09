@@ -31,6 +31,7 @@ from .views import HealthCheckView
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", HealthCheckView.as_view(), name="health"),
-     path("api/", include("apps.accounts.urls")),
+    path("api/", include("apps.accounts.urls")),
+    path("api/", include("apps.admin_panel.urls")),
 ]
 
