@@ -106,3 +106,24 @@ Admin only (`role = ADMIN`). Temporary endpoint that proves the admin permission
 
 Permission class: `apps.accounts.permissions.IsAdminRole` (checks `role`, not `is_staff`).
 Admin users are created with `python manage.py createsuperuser` (role becomes ADMIN automatically). There is no API to become admin.
+
+
+## Frontend auth flow (Phase 14)
+
+- Token code lives only in `frontend/src/services/tokenStorage.js` (decision J3).
+  Access token: memory. Refresh token: localStorage.
+- `frontend/src/services/api.js` adds the access token to every request.
+  On a 401 it refreshes once, retries the request, and if refresh fails it
+  clears tokens and fires the `auth:logout` event.
+- Auth endpoints (`/auth/*`) never trigger a refresh, so a wrong password
+  does not start a refresh loop.
+- On page load `AuthContext` restores the session once with the refresh token
+  (guarded against React StrictMode running effects twice, because refresh
+  tokens rotate and can be used only once).
+- Route guards: `GuestRoute` (/login, /register), `ProtectedRoute`
+  (logged-in users), `AdminRoute` (role ADMIN). These only hide pages.
+  The backend `IsAdminRole` permission is the real protection.
+- Register logs the user in automatically.
+- Known limitation: a refresh token in localStorage can be read by any
+  script on the page (XSS). Accepted for the MVP. Moving it to an HttpOnly
+  cookie only needs changes in `tokenStorage.js` and the backend.
