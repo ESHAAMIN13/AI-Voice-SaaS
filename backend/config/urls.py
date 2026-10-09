@@ -25,10 +25,12 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-
+from django.urls import include
 from .views import HealthCheckView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", HealthCheckView.as_view(), name="health"),
+     path("api/", include("apps.accounts.urls")),
 ]
+
