@@ -13,11 +13,11 @@ export async function createVoice({ name, description, consent }) {
 export async function deleteVoice(id) {
     await api.delete(`/voices/${id}/`)
 }
-
-export async function uploadSample(voiceId, file, durationSec) {
+export async function uploadSample(voiceId, file) {
     const form = new FormData()
     form.append('file', file)
-    if (durationSec) form.append('duration_sec', String(durationSec))
-    const res = await api.post(`/voices/${voiceId}/upload/`, form, { timeout: 60000 })
+    // The server measures the duration itself, so the client sends only the file.
+    // The timeout is generous because the server checks the audio before saving it.
+    const res = await api.post(`/voices/${voiceId}/upload/`, form, { timeout: 120000 })
     return res.data.data
 }

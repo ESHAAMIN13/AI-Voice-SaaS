@@ -28,14 +28,14 @@ export default function VoicesPage() {
     const [deletingId, setDeletingId] = useState(null)
     const [chosenRecording, setChosenRecording] = useState(null)
 
-
     const [uploadVoiceId, setUploadVoiceId] = useState('')
     const [pickedFile, setPickedFile] = useState(null)
     const [uploading, setUploading] = useState(false)
     const [uploadMsg, setUploadMsg] = useState('')
     const [uploadErr, setUploadErr] = useState('')
+    const [uploadWarnings, setUploadWarnings] = useState([])
 
-    // Used after create/delete to refresh the list
+    // Used after create/delete/upload to refresh the list
     const load = useCallback(async () => {
         try {
             setVoices(await listVoices())
@@ -97,28 +97,30 @@ export default function VoicesPage() {
         e.preventDefault()
         setUploadMsg('')
         setUploadErr('')
+        setUploadWarnings([])
         const source = pickedFile || chosenRecording?.blob
         if (!uploadVoiceId || !source) {
             setUploadErr('Choose a voice profile and a file or recording.')
             return
         }
         let file = source
-        let duration
         if (!pickedFile && chosenRecording) {
             const ext = chosenRecording.mimeType.includes('mp4') ? 'mp4' : 'webm'
             file = new File([chosenRecording.blob], `recording.${ext}`, { type: chosenRecording.mimeType.split(';')[0] })
-            duration = chosenRecording.seconds
         }
         setUploading(true)
         try {
-            await uploadSample(uploadVoiceId, file, duration)
-            setUploadMsg('Uploaded. Validation comes in the next phases.')
+            const sample = await uploadSample(uploadVoiceId, file)
+            const seconds = sample.duration_sec ? ` (${Math.round(sample.duration_sec)}s)` : ''
+            setUploadMsg(`Sample accepted${seconds}. It will be prepared for cloning in the next phase.`)
+            setUploadWarnings(sample.warnings || [])
             setPickedFile(null)
             setChosenRecording(null)
         } catch (err) {
             setUploadErr(getErrorMessage(err))
         } finally {
             setUploading(false)
+            await load() // the profile status or message may have changed
         }
     }
 
@@ -165,18 +167,26 @@ export default function VoicesPage() {
                     {saving ? 'Creating...' : 'Create profile'}
                 </button>
             </form>
+
             <div className="flex flex-col gap-2">
                 <AudioRecorder onUse={setChosenRecording} />
                 {chosenRecording && (
                     <p className="max-w-lg rounded-lg bg-green-50 p-3 text-sm text-green-700">
-                        Recording ready ({chosenRecording.seconds}s, {chosenRecording.mimeType}). Uploading it to a
-                        voice profile comes in Phase 19.
+                        Recording ready ({chosenRecording.seconds}s). Choose a voice profile below and upload it.
                     </p>
                 )}
             </div>
+
             <form onSubmit={handleUpload} className="flex max-w-lg flex-col gap-3 rounded-2xl bg-white p-4 shadow">
                 <h2 className="text-base font-semibold text-slate-900">Upload a voice sample</h2>
                 {uploadMsg && <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">{uploadMsg}</p>}
+                {uploadWarnings.length > 0 && (
+                    <ul className="list-disc rounded-lg bg-amber-50 p-3 pl-6 text-sm text-amber-800">
+                        {uploadWarnings.map((w) => (
+                            <li key={w}>{w}</li>
+                        ))}
+                    </ul>
+                )}
                 {uploadErr && (
                     <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{uploadErr}</p>
                 )}
@@ -197,7 +207,7 @@ export default function VoicesPage() {
                     className="text-sm"
                 />
                 <p className="text-xs text-slate-500">
-                    Or use the recording above ({chosenRecording ? 'ready' : 'none yet'}). A chosen file is used first. Max 10 MB.
+                    Or use the recording above ({chosenRecording ? 'ready' : 'none yet'}). A chosen file is used first. Max 10 MB, 10 to 60 seconds.
                 </p>
                 <button
                     type="submit"
@@ -207,6 +217,7 @@ export default function VoicesPage() {
                     {uploading ? 'Uploading...' : 'Upload'}
                 </button>
             </form>
+
             {error && (
                 <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
                     {error}
@@ -229,6 +240,9 @@ export default function VoicesPage() {
                                 <div className="min-w-0">
                                     <p className="truncate font-medium text-slate-900">{v.name}</p>
                                     {v.description && <p className="truncate text-sm text-slate-500">{v.description}</p>}
+                                    {v.status_message && (
+                                        <p className="text-sm text-red-600">{v.status_message}</p>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-3">
