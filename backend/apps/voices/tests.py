@@ -4,10 +4,13 @@ from rest_framework.test import APIClient, APITestCase
 
 from apps.accounts.models import Profile, User
 
-from .models import VoiceProfile
+from .models import VoiceProfile, VoiceSample
 
 PASSWORD = "StrongPass#2026x"
 
+from unittest.mock import patch
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 class VoiceTestBase(APITestCase):
     def setUp(self):
@@ -160,3 +163,84 @@ class VoiceUpdateDeleteTests(VoiceTestBase):
         res = self.client.delete(reverse("voice-detail", args=[self.voice_id]))
         self.assertEqual(res.status_code, 200)
         self.assertFalse(VoiceProfile.objects.filter(pk=self.voice_id).exists())
+
+class VoiceUploadTests(VoiceTestBase):
+    def setUp(self):
+        super().setUp()
+        self.login_as(self.alice)
+        self.voice_id = self.create_voice("Alice Voice").json()["data"]["id"]
+        self.url = reverse("voice-upload", args=[self.voice_id])
+
+    def audio(self, name="a.wav", content=b"RIFFdata", ctype="audio/wav"):
+        return SimpleUploadedFile(name, content, content_type=ctype)
+
+    def post_file(self, f, **extra):
+        return self.client.post(self.url, {"file": f, **extra}, format="multipart")
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_upload_success_creates_sample_and_keeps_pending(self, mock_upload):
+        res = self.post_file(self.audio(), duration_sec="12.5")
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.json()["data"]["duration_sec"], 12.5)
+        mock_upload.assert_called_once()
+        voice = VoiceProfile.objects.get(pk=self.voice_id)
+        self.assertEqual(voice.status, "PENDING")  # U7
+        sample = voice.samples.get()
+        self.assertTrue(sample.file_path.startswith(f"{self.alice.id}/{voice.id}/"))
+        self.assertNotIn("a.wav", sample.file_path)  # U5
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_new_upload_deactivates_old_sample(self, _):
+        self.post_file(self.audio())
+        self.post_file(self.audio())
+        active = VoiceSample.objects.filter(voice_profile_id=self.voice_id, is_active=True)
+        self.assertEqual(active.count(), 1)
+        self.assertEqual(VoiceSample.objects.filter(voice_profile_id=self.voice_id).count(), 2)
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_other_user_gets_404_and_nothing_uploaded(self, mock_upload):
+        self.login_as(self.bob)
+        res = self.post_file(self.audio())
+        self.assertEqual(res.status_code, 404)
+        mock_upload.assert_not_called()
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_wrong_extension_is_400(self, mock_upload):
+        res = self.post_file(self.audio("a.exe", ctype="application/octet-stream"))
+        self.assertEqual(res.status_code, 400)
+        mock_upload.assert_not_called()
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_type_mismatch_is_400(self, mock_upload):
+        res = self.post_file(self.audio("a.wav", ctype="text/html"))
+        self.assertEqual(res.status_code, 400)
+        mock_upload.assert_not_called()
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_empty_file_is_400(self, mock_upload):
+        self.assertEqual(self.post_file(self.audio(content=b"")).status_code, 400)
+        mock_upload.assert_not_called()
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_too_large_is_400(self, mock_upload):
+        big = self.audio(content=b"0" * (10 * 1024 * 1024 + 1))
+        self.assertEqual(self.post_file(big).status_code, 400)
+        mock_upload.assert_not_called()
+
+    def test_missing_file_is_400(self):
+        res = self.client.post(self.url, {}, format="multipart")
+        self.assertEqual(res.status_code, 400)
+
+    def test_requires_login(self):
+        self.client.credentials()
+        self.assertEqual(self.post_file(self.audio()).status_code, 401)
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_storage_failure_is_502_and_no_row(self, mock_upload):
+        from apps.voices.storage import StorageError
+
+        mock_upload.side_effect = StorageError("boom")
+        res = self.post_file(self.audio())
+        self.assertEqual(res.status_code, 502)
+        self.assertEqual(VoiceSample.objects.count(), 0)
+        self.assertNotIn("boom", res.content.decode())  # no internal details

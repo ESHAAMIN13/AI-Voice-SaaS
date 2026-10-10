@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Mic, Trash2 } from 'lucide-react'
-import { createVoice, deleteVoice, listVoices } from '../../services/voiceService'
+
 import { getErrorMessage } from '../../utils/apiError'
 import AudioRecorder from '../../components/voices/AudioRecorder'
+import { createVoice, deleteVoice, listVoices, uploadSample } from '../../services/voiceService'
 
 const CONSENT_TEXT =
     "I confirm this is my own voice, or I have the speaker's permission to clone it. I will not use it to impersonate anyone."
@@ -27,6 +28,12 @@ export default function VoicesPage() {
     const [deletingId, setDeletingId] = useState(null)
     const [chosenRecording, setChosenRecording] = useState(null)
 
+
+    const [uploadVoiceId, setUploadVoiceId] = useState('')
+    const [pickedFile, setPickedFile] = useState(null)
+    const [uploading, setUploading] = useState(false)
+    const [uploadMsg, setUploadMsg] = useState('')
+    const [uploadErr, setUploadErr] = useState('')
 
     // Used after create/delete to refresh the list
     const load = useCallback(async () => {
@@ -86,6 +93,35 @@ export default function VoicesPage() {
         }
     }
 
+    async function handleUpload(e) {
+        e.preventDefault()
+        setUploadMsg('')
+        setUploadErr('')
+        const source = pickedFile || chosenRecording?.blob
+        if (!uploadVoiceId || !source) {
+            setUploadErr('Choose a voice profile and a file or recording.')
+            return
+        }
+        let file = source
+        let duration
+        if (!pickedFile && chosenRecording) {
+            const ext = chosenRecording.mimeType.includes('mp4') ? 'mp4' : 'webm'
+            file = new File([chosenRecording.blob], `recording.${ext}`, { type: chosenRecording.mimeType.split(';')[0] })
+            duration = chosenRecording.seconds
+        }
+        setUploading(true)
+        try {
+            await uploadSample(uploadVoiceId, file, duration)
+            setUploadMsg('Uploaded. Validation comes in the next phases.')
+            setPickedFile(null)
+            setChosenRecording(null)
+        } catch (err) {
+            setUploadErr(getErrorMessage(err))
+        } finally {
+            setUploading(false)
+        }
+    }
+
     return (
         <div className="flex flex-col gap-6">
             <h1 className="text-xl font-semibold text-slate-900">Voices</h1>
@@ -138,6 +174,39 @@ export default function VoicesPage() {
                     </p>
                 )}
             </div>
+            <form onSubmit={handleUpload} className="flex max-w-lg flex-col gap-3 rounded-2xl bg-white p-4 shadow">
+                <h2 className="text-base font-semibold text-slate-900">Upload a voice sample</h2>
+                {uploadMsg && <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">{uploadMsg}</p>}
+                {uploadErr && (
+                    <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{uploadErr}</p>
+                )}
+                <select
+                    value={uploadVoiceId}
+                    onChange={(e) => setUploadVoiceId(e.target.value)}
+                    className="rounded-lg border border-slate-300 p-2 text-sm"
+                >
+                    <option value="">Choose voice profile</option>
+                    {voices.map((v) => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                </select>
+                <input
+                    type="file"
+                    accept=".wav,.mp3,.m4a,.mp4,.webm,.ogg,.flac,audio/*"
+                    onChange={(e) => setPickedFile(e.target.files[0] || null)}
+                    className="text-sm"
+                />
+                <p className="text-xs text-slate-500">
+                    Or use the recording above ({chosenRecording ? 'ready' : 'none yet'}). A chosen file is used first. Max 10 MB.
+                </p>
+                <button
+                    type="submit"
+                    disabled={uploading}
+                    className="rounded-lg bg-indigo-600 p-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                >
+                    {uploading ? 'Uploading...' : 'Upload'}
+                </button>
+            </form>
             {error && (
                 <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
                     {error}

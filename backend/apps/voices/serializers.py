@@ -2,8 +2,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import VoiceProfile
-
+from .models import VoiceProfile, VoiceSample
 CONSENT_VERSION = "v1"
 
 
@@ -69,3 +68,30 @@ class VoiceProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data.pop("consent", None)  # consent cannot be changed later
         return super().update(instance, validated_data)
+
+from .upload import ALLOWED, MAX_UPLOAD_BYTES, clean_extension
+
+
+class VoiceSampleUploadSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    duration_sec = serializers.FloatField(required=False, min_value=0, max_value=3600)
+
+    def validate_file(self, f):
+        if f.size == 0:
+            raise serializers.ValidationError("The file is empty.")
+        if f.size > MAX_UPLOAD_BYTES:
+            raise serializers.ValidationError("File is too large. Maximum size is 10 MB.")
+        ext = clean_extension(f.name)
+        if ext not in ALLOWED:
+            raise serializers.ValidationError("Unsupported file type.")
+        base_type = (f.content_type or "").split(";")[0].strip().lower()
+        if base_type not in ALLOWED[ext]:
+            raise serializers.ValidationError("File type does not match its extension.")
+        return f
+
+
+class VoiceSampleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VoiceSample
+        fields = ["id", "kind", "format", "size_bytes", "duration_sec", "is_active", "created_at"]
+        read_only_fields = fields

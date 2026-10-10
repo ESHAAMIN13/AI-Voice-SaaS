@@ -150,3 +150,22 @@ Rules:
 - Name: trimmed, 1 to 100 characters, unique per user (case-insensitive). Duplicate gives 400.
 - PUT is not allowed (405). Use PATCH.
 - Admin endpoints for all voices come in Phase 37.
+
+
+
+### POST /api/voices/{id}/upload/ (Phase 19)
+Private, owner only (another user's profile returns 404). Throttle: 20/hour.
+Multipart form: `file` (required), `duration_sec` (optional, from the recorder).
+
+| Status | Meaning |
+|---|---|
+| 201 | Sample saved. `data` = id, kind, format, size_bytes, duration_sec, is_active |
+| 400 | Empty file, over 10 MB, unsupported type, or extension and content type do not match |
+| 401 | Not logged in |
+| 404 | Profile does not exist or belongs to someone else |
+| 502 | Storage failed (nothing is saved in the database) |
+
+Rules: allowed types are wav, mp3, m4a, mp4, webm, ogg, flac. The file is stored in the private
+`voice-samples` bucket at `{user_id}/{profile_id}/{uuid}.{ext}`; the client's filename is never used.
+A new upload makes the previous original sample inactive. The profile status stays PENDING until
+validation (Phases 20-21). The real file content is not inspected yet (Phase 20).

@@ -13,3 +13,11 @@ export async function createVoice({ name, description, consent }) {
 export async function deleteVoice(id) {
     await api.delete(`/voices/${id}/`)
 }
+
+export async function uploadSample(voiceId, file, durationSec) {
+    const form = new FormData()
+    form.append('file', file)
+    if (durationSec) form.append('duration_sec', String(durationSec))
+    const res = await api.post(`/voices/${voiceId}/upload/`, form, { timeout: 60000 })
+    return res.data.data
+}
