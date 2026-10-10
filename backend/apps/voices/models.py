@@ -52,7 +52,7 @@ class VoiceSample(BaseModel):
     file_path = models.CharField(max_length=500)
     format = models.CharField(max_length=20)
     size_bytes = models.PositiveBigIntegerField()
-    duration_sec = models.FloatField()
+    duration_sec = models.FloatField(null=True, blank=True)
     sample_rate = models.PositiveIntegerField(null=True, blank=True)
     channels = models.PositiveSmallIntegerField(null=True, blank=True)
     validation_notes = models.TextField(blank=True)

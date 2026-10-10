@@ -148,6 +148,9 @@ SIMPLE_JWT = {
 
 # CORS: only our own frontend may call the API from a browser
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+# Supabase Storage (backend only; these never go to the frontend)
+SUPABASE_URL = env("SUPABASE_URL", default="")
+SUPABASE_SERVICE_ROLE_KEY = env("SUPABASE_SERVICE_ROLE_KEY", default="")
 
 # Use our own User model (must be set before the first migration)
 AUTH_USER_MODEL = "accounts.User"
