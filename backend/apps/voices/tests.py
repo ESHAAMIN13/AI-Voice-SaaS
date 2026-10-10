@@ -1,16 +1,17 @@
+from unittest.mock import patch
+
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
 
 from apps.accounts.models import Profile, User
+from services.audio.test_validation import tone
 
 from .models import VoiceProfile, VoiceSample
 
 PASSWORD = "StrongPass#2026x"
 
-from unittest.mock import patch
-
-from django.core.files.uploadedfile import SimpleUploadedFile
 
 class VoiceTestBase(APITestCase):
     def setUp(self):
@@ -163,15 +164,21 @@ class VoiceUpdateDeleteTests(VoiceTestBase):
         res = self.client.delete(reverse("voice-detail", args=[self.voice_id]))
         self.assertEqual(res.status_code, 200)
         self.assertFalse(VoiceProfile.objects.filter(pk=self.voice_id).exists())
-
 class VoiceUploadTests(VoiceTestBase):
+    @classmethod
+    def setUpTestData(cls):
+        # One real 12-second tone, made once. Fake bytes are now (rightly) rejected.
+        cls.good_audio = tone(12)
+
     def setUp(self):
         super().setUp()
         self.login_as(self.alice)
         self.voice_id = self.create_voice("Alice Voice").json()["data"]["id"]
         self.url = reverse("voice-upload", args=[self.voice_id])
 
-    def audio(self, name="a.wav", content=b"RIFFdata", ctype="audio/wav"):
+    def audio(self, name="a.wav", content=None, ctype="audio/wav"):
+        if content is None:
+            content = self.good_audio
         return SimpleUploadedFile(name, content, content_type=ctype)
 
     def post_file(self, f, **extra):
@@ -179,9 +186,10 @@ class VoiceUploadTests(VoiceTestBase):
 
     @patch("apps.voices.views.storage.upload_bytes")
     def test_upload_success_creates_sample_and_keeps_pending(self, mock_upload):
-        res = self.post_file(self.audio(), duration_sec="12.5")
+        # The client claims 99 s, but the file is 12 s: our measurement wins (V8).
+        res = self.post_file(self.audio(), duration_sec="99")
         self.assertEqual(res.status_code, 201)
-        self.assertEqual(res.json()["data"]["duration_sec"], 12.5)
+        self.assertAlmostEqual(res.json()["data"]["duration_sec"], 12, delta=0.5)
         mock_upload.assert_called_once()
         voice = VoiceProfile.objects.get(pk=self.voice_id)
         self.assertEqual(voice.status, "PENDING")  # U7
@@ -191,8 +199,8 @@ class VoiceUploadTests(VoiceTestBase):
 
     @patch("apps.voices.views.storage.upload_bytes")
     def test_new_upload_deactivates_old_sample(self, _):
-        self.post_file(self.audio())
-        self.post_file(self.audio())
+        self.assertEqual(self.post_file(self.audio()).status_code, 201)
+        self.assertEqual(self.post_file(self.audio()).status_code, 201)
         active = VoiceSample.objects.filter(voice_profile_id=self.voice_id, is_active=True)
         self.assertEqual(active.count(), 1)
         self.assertEqual(VoiceSample.objects.filter(voice_profile_id=self.voice_id).count(), 2)

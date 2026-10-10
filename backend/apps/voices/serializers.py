@@ -1,8 +1,9 @@
-
 from django.utils import timezone
 from rest_framework import serializers
 
 from .models import VoiceProfile, VoiceSample
+from .upload import ALLOWED, MAX_UPLOAD_BYTES, clean_extension
+
 CONSENT_VERSION = "v1"
 
 
@@ -69,18 +70,21 @@ class VoiceProfileSerializer(serializers.ModelSerializer):
         validated_data.pop("consent", None)  # consent cannot be changed later
         return super().update(instance, validated_data)
 
-from .upload import ALLOWED, MAX_UPLOAD_BYTES, clean_extension
-
 
 class VoiceSampleUploadSerializer(serializers.Serializer):
+    """Cheap first checks. The real content check is audio validation (Phase 20).
+
+    A client-sent duration is deliberately NOT accepted: we measure it ourselves.
+    """
+
     file = serializers.FileField()
-    duration_sec = serializers.FloatField(required=False, min_value=0, max_value=3600)
 
     def validate_file(self, f):
         if f.size == 0:
             raise serializers.ValidationError("The file is empty.")
         if f.size > MAX_UPLOAD_BYTES:
-            raise serializers.ValidationError("File is too large. Maximum size is 10 MB.")
+            mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+            raise serializers.ValidationError(f"File is too large. Maximum size is {mb} MB.")
         ext = clean_extension(f.name)
         if ext not in ALLOWED:
             raise serializers.ValidationError("Unsupported file type.")
@@ -91,7 +95,23 @@ class VoiceSampleUploadSerializer(serializers.Serializer):
 
 
 class VoiceSampleSerializer(serializers.ModelSerializer):
+    warnings = serializers.SerializerMethodField()
+
     class Meta:
         model = VoiceSample
-        fields = ["id", "kind", "format", "size_bytes", "duration_sec", "is_active", "created_at"]
+        fields = [
+            "id",
+            "kind",
+            "format",
+            "size_bytes",
+            "duration_sec",
+            "sample_rate",
+            "channels",
+            "warnings",
+            "is_active",
+            "created_at",
+        ]
         read_only_fields = fields
+
+    def get_warnings(self, obj):
+        return [line for line in obj.validation_notes.splitlines() if line.strip()]

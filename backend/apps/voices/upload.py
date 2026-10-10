@@ -1,7 +1,8 @@
 import uuid
+from django.conf import settings
 from pathlib import PurePath
 
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # U2
+MAX_UPLOAD_BYTES = settings.VOICE_SAMPLE_MAX_BYTES  # U2, same limit as audio validation
 
 # extension -> allowed content types (U3). Real content check comes in Phase 20.
 ALLOWED = {
