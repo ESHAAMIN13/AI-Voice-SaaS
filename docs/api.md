@@ -153,19 +153,29 @@ Rules:
 
 
 
-### POST /api/voices/{id}/upload/ (Phase 19)
+### POST /api/voices/{id}/upload/ (Phases 19-20)
 Private, owner only (another user's profile returns 404). Throttle: 20/hour.
-Multipart form: `file` (required), `duration_sec` (optional, from the recorder).
+Multipart form: `file` (required). Any `duration_sec` sent by the client is ignored;
+the server measures it. Limits and checks: see audio.md.
 
 | Status | Meaning |
 |---|---|
-| 201 | Sample saved. `data` = id, kind, format, size_bytes, duration_sec, is_active |
-| 400 | Empty file, over 10 MB, unsupported type, or extension and content type do not match |
+| 201 | Sample saved. `data` includes id, kind, format, size_bytes, duration_sec, sample_rate, channels, is_active, warnings |
+| 400 | File rejected (empty, too large, unsupported type, unreadable, too short, too long, no audio, video). `message` is the first reason, `errors` lists all |
 | 401 | Not logged in |
 | 404 | Profile does not exist or belongs to someone else |
 | 502 | Storage failed (nothing is saved in the database) |
+| 503 | Audio checking tools (FFmpeg) are unavailable (nothing is stored) |
 
-Rules: allowed types are wav, mp3, m4a, mp4, webm, ogg, flac. The file is stored in the private
-`voice-samples` bucket at `{user_id}/{profile_id}/{uuid}.{ext}`; the client's filename is never used.
-A new upload makes the previous original sample inactive. The profile status stays PENDING until
-validation (Phases 20-21). The real file content is not inspected yet (Phase 20).
+Rules:
+- The audio content is checked BEFORE anything is stored. A rejected file is never uploaded.
+- Stored in the private `voice-samples` bucket at `{user_id}/{profile_id}/{uuid}.{ext}`;
+  the client's filename is never used.
+- A new valid upload makes the previous original sample inactive, and sets the profile
+  to PENDING with an empty `status_message`.
+- A rejected upload sets the profile to REJECTED with the reason in `status_message`,
+  but only if the profile has no active good sample. A bad upload never damages
+  a profile that already has a good sample.
+- `warnings` (silence, clipping, very quiet, low sample rate) do not block the upload;
+  they are also saved in the sample's validation notes.
+- The profile is never set to APPROVED here. That comes in Phase 21.
