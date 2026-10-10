@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Mic, Trash2 } from 'lucide-react'
 import { createVoice, deleteVoice, listVoices } from '../../services/voiceService'
 import { getErrorMessage } from '../../utils/apiError'
+import AudioRecorder from '../../components/voices/AudioRecorder'
 
 const CONSENT_TEXT =
     "I confirm this is my own voice, or I have the speaker's permission to clone it. I will not use it to impersonate anyone."
@@ -24,6 +25,7 @@ export default function VoicesPage() {
     const [formError, setFormError] = useState('')
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState(null)
+    const [chosenRecording, setChosenRecording] = useState(null)
 
 
     // Used after create/delete to refresh the list
@@ -127,7 +129,15 @@ export default function VoicesPage() {
                     {saving ? 'Creating...' : 'Create profile'}
                 </button>
             </form>
-
+            <div className="flex flex-col gap-2">
+                <AudioRecorder onUse={setChosenRecording} />
+                {chosenRecording && (
+                    <p className="max-w-lg rounded-lg bg-green-50 p-3 text-sm text-green-700">
+                        Recording ready ({chosenRecording.seconds}s, {chosenRecording.mimeType}). Uploading it to a
+                        voice profile comes in Phase 19.
+                    </p>
+                )}
+            </div>
             {error && (
                 <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
                     {error}
