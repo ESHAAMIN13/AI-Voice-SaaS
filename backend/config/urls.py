@@ -33,5 +33,6 @@ urlpatterns = [
     path("api/health/", HealthCheckView.as_view(), name="health"),
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.admin_panel.urls")),
+    path("api/", include("apps.voices.urls")),
 ]
 

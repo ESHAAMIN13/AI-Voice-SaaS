@@ -127,3 +127,26 @@ Admin users are created with `python manage.py createsuperuser` (role becomes AD
 - Known limitation: a refresh token in localStorage can be read by any
   script on the page (XSS). Accepted for the MVP. Moving it to an HttpOnly
   cookie only needs changes in `tokenStorage.js` and the backend.
+
+
+  
+## Voice profiles (Phase 17)
+
+All endpoints are private. A user only ever sees their own profiles; another
+user's profile returns 404 (not 403), so its existence is not revealed.
+
+| Method | URL | Purpose |
+|---|---|---|
+| GET | `/api/voices/` | List own profiles (no pagination yet) |
+| POST | `/api/voices/` | Create: `name`, `description` (optional), `consent` (must be true) |
+| GET | `/api/voices/{id}/` | One profile |
+| PATCH | `/api/voices/{id}/` | Change `name` / `description` only |
+| DELETE | `/api/voices/{id}/` | Delete (DB row; storage files are handled in Phase 22) |
+
+Rules:
+- `consent` must be `true` on create, otherwise 400. The server sets
+  `consent_accepted_at` and `consent_version` ("v1"). Consent cannot be edited later.
+- `status`, `status_message`, `user` are never accepted from the client. New profiles are PENDING.
+- Name: trimmed, 1 to 100 characters, unique per user (case-insensitive). Duplicate gives 400.
+- PUT is not allowed (405). Use PATCH.
+- Admin endpoints for all voices come in Phase 37.
