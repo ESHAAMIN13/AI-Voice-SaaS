@@ -65,7 +65,14 @@ class ValidateAudioTests(SimpleTestCase):
         self.assert_error(validate_audio_bytes(os.urandom(5000)), "could not be read")
 
     def test_text_file_pretending_to_be_audio(self):
-        self.assert_error(validate_audio_bytes(b"hello world " * 200), "could not be read")
+        result = validate_audio_bytes(b"hello world " * 200)
+        self.assertFalse(result.ok)
+        # ffprobe may call text "unreadable" or "an unsupported format".
+        # Both are safe rejections shown to the user.
+        self.assertTrue(
+            any("could not be read" in e.lower() or "unsupported" in e.lower() for e in result.errors),
+            result.errors,
+        )
 
     def test_silent_audio_warns(self):
         data = make_audio(["-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-t", "15"], ".wav")
