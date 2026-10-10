@@ -155,3 +155,14 @@ SUPABASE_SERVICE_ROLE_KEY = env("SUPABASE_SERVICE_ROLE_KEY", default="")
 
 # Use our own User model (must be set before the first migration)
 AUTH_USER_MODEL = "accounts.User"
+
+
+# Voice sample validation (Phase 20, decision V5)
+VOICE_SAMPLE_MIN_SECONDS = 10
+VOICE_SAMPLE_MAX_SECONDS = 60
+VOICE_SAMPLE_DURATION_TOLERANCE = 0.5  # browser recordings are rarely exact
+VOICE_SAMPLE_MAX_BYTES = 10 * 1024 * 1024
+AUDIO_PROBE_TIMEOUT_SECONDS = 20
+AUDIO_DECODE_TIMEOUT_SECONDS = 60
+FFMPEG_BIN = env("FFMPEG_BIN", default="ffmpeg")
+FFPROBE_BIN = env("FFPROBE_BIN", default="ffprobe")
