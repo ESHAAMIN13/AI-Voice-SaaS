@@ -112,8 +112,7 @@ export default function VoicesPage() {
         try {
             const sample = await uploadSample(uploadVoiceId, file)
             const seconds = sample.duration_sec ? ` (${Math.round(sample.duration_sec)}s)` : ''
-            setUploadMsg(`Sample accepted${seconds}. It will be prepared for cloning in the next phase.`)
-            setUploadWarnings(sample.warnings || [])
+            setUploadMsg(`Sample accepted${seconds} and prepared for cloning.`)
             setPickedFile(null)
             setChosenRecording(null)
         } catch (err) {
