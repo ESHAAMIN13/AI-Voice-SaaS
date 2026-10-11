@@ -59,8 +59,10 @@ class VoiceDetailView(OwnedVoiceMixin, generics.RetrieveUpdateDestroyAPIView):
         return success_response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
-        # V5: DB row only for now; storage files are handled in Phase 22
-        self.get_object().delete()
+        profile = self.get_object()
+        files = [(s.storage_bucket, s.file_path) for s in profile.samples.all()]
+        profile.delete()
+        storage.remove_files(files)  # S-1, S-3
         return success_response({"detail": "Voice profile deleted."})
 
 
@@ -127,6 +129,11 @@ class VoiceUploadView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
+        # S-2: remember the files that are about to be replaced
+        old_files = [
+            (s.storage_bucket, s.file_path) for s in profile.samples.filter(is_active=True)
+        ]
+
         meta = result.metadata
         with transaction.atomic():
             # U4: one active ORIGINAL and one active PROCESSED sample per profile
@@ -160,6 +167,7 @@ class VoiceUploadView(APIView):
             profile.status_message = ""
             profile.save(update_fields=["status", "status_message", "updated_at"])
 
+        storage.remove_files(old_files)  # S-2: replaced files are removed
         return success_response(VoiceSampleSerializer(sample).data, status=status.HTTP_201_CREATED)
 
     @staticmethod
@@ -180,3 +188,22 @@ class VoiceUploadView(APIView):
             profile.status = VoiceProfile.Status.FAILED
             profile.status_message = "We could not prepare this audio."
             profile.save(update_fields=["status", "status_message", "updated_at"])
+
+
+class VoiceSampleUrlView(APIView):
+    """S-4: a 60-second link to listen to the prepared sample. Owner only."""
+
+    def get(self, request, pk):
+        profile = get_object_or_404(VoiceProfile, pk=pk, user=request.user)
+        sample = profile.samples.filter(kind=VoiceSample.Kind.PROCESSED, is_active=True).first()
+        if sample is None:
+            return error_response("No prepared sample yet.", status=status.HTTP_404_NOT_FOUND)
+        try:
+            url = storage.signed_url(sample.storage_bucket, sample.file_path, expires_in=60)
+        except storage.StorageError:
+            logger.exception("Could not sign sample URL")
+            return error_response(
+                "Could not load the sample. Please try again.",
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return success_response({"url": url, "expires_in": 60})

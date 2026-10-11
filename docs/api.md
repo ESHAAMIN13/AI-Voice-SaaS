@@ -179,3 +179,14 @@ Rules:
 - `warnings` (silence, clipping, very quiet, low sample rate) do not block the upload;
   they are also saved in the sample's validation notes.
 - A successful upload also creates a PROCESSED sample (WAV, mono, 24 kHz) and sets the profile to APPROVED. - A processing failure returns 400 and sets FAILED, only if the profile has no good sample already.
+
+
+
+### GET /api/voices/{id}/sample-url/ (Phase 22)
+Private, owner only (404 for others). Returns `{ "url": "...", "expires_in": 60 }`:
+a 60-second signed link to the prepared (processed WAV) sample. The bucket stays private.
+404 if there is no prepared sample yet, 502 if signing fails.
+
+Storage cleanup: deleting a profile removes all its files from storage; a new upload removes
+the replaced files. If a delete fails, the action still succeeds and the path is logged as
+`ORPHAN storage file` for later cleanup.
