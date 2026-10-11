@@ -187,7 +187,7 @@ class VoiceUploadTests(VoiceTestBase):
     @patch("apps.voices.views.storage.upload_bytes")
     def test_upload_success_creates_sample_and_keeps_pending(self, mock_upload):
         # The client claims 99 s, but the file is 12 s: our measurement wins (V8).
-        res = self.post_file(self.audio(), duration_sec="99")
+        res = self.post_file(self.audio("original-name.wav"), duration_sec="12.5")
         self.assertEqual(res.status_code, 201)
         self.assertAlmostEqual(res.json()["data"]["duration_sec"], 12, delta=0.5)
         mock_upload.assert_called_once()
@@ -195,7 +195,7 @@ class VoiceUploadTests(VoiceTestBase):
         self.assertEqual(voice.status, "PENDING")  # U7
         sample = voice.samples.get()
         self.assertTrue(sample.file_path.startswith(f"{self.alice.id}/{voice.id}/"))
-        self.assertNotIn("a.wav", sample.file_path)  # U5
+        self.assertNotIn("original-name", sample.file_path)  # U5        
 
     @patch("apps.voices.views.storage.upload_bytes")
     def test_new_upload_deactivates_old_sample(self, _):
