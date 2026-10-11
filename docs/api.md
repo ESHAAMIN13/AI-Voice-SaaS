@@ -165,7 +165,7 @@ the server measures it. Limits and checks: see audio.md.
 | 401 | Not logged in |
 | 404 | Profile does not exist or belongs to someone else |
 | 502 | Storage failed (nothing is saved in the database) |
-| 503 | Audio checking tools (FFmpeg) are unavailable (nothing is stored) |
+| 503 | Audio checking or processing tools (FFmpeg) are unavailable (nothing is stored)|
 
 Rules:
 - The audio content is checked BEFORE anything is stored. A rejected file is never uploaded.
@@ -178,4 +178,4 @@ Rules:
   a profile that already has a good sample.
 - `warnings` (silence, clipping, very quiet, low sample rate) do not block the upload;
   they are also saved in the sample's validation notes.
-- The profile is never set to APPROVED here. That comes in Phase 21.
+- A successful upload also creates a PROCESSED sample (WAV, mono, 24 kHz) and sets the profile to APPROVED. - A processing failure returns 400 and sets FAILED, only if the profile has no good sample already.
