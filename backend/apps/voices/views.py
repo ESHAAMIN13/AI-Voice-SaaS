@@ -1,5 +1,6 @@
 import logging
 
+from django.conf import settings
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
@@ -7,6 +8,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.views import APIView
 
 from config.responses import error_response, success_response
+from services.audio.processing import ProcessingError, process_audio_bytes
 from services.audio.validation import AudioToolError, validate_audio_bytes
 
 from . import storage
@@ -91,12 +93,33 @@ class VoiceUploadView(APIView):
                 result.errors[0], errors=result.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
+        # P4: convert to the model format BEFORE anything is stored
+        try:
+            processed = process_audio_bytes(data)
+        except AudioToolError:
+            logger.exception("Audio tools are not working")
+            return error_response(
+                "Audio processing is temporarily unavailable. Please try again later.",
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except ProcessingError:
+            logger.exception("Audio processing failed")
+            self._mark_failed(profile)
+            return error_response(
+                "We could not prepare this audio. Please try a different file.",
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         ext = clean_extension(f.name)
         path = build_storage_path(request.user.id, profile.id, ext)
         content_type = (f.content_type or "application/octet-stream").split(";")[0]
+        processed_path = build_storage_path(request.user.id, profile.id, ".wav").replace(
+            f"{profile.id}/", f"{profile.id}/processed/", 1
+        )  # P6
 
         try:
             storage.upload_bytes("voice-samples", path, data, content_type)
+            storage.upload_bytes("voice-samples", processed_path, processed, "audio/wav")
         except storage.StorageError:
             logger.exception("Voice sample upload failed")
             return error_response(
@@ -106,10 +129,8 @@ class VoiceUploadView(APIView):
 
         meta = result.metadata
         with transaction.atomic():
-            # U4: only one active ORIGINAL sample per profile
-            profile.samples.filter(kind=VoiceSample.Kind.ORIGINAL, is_active=True).update(
-                is_active=False
-            )
+            # U4: one active ORIGINAL and one active PROCESSED sample per profile
+            profile.samples.filter(is_active=True).update(is_active=False)
             sample = VoiceSample.objects.create(
                 voice_profile=profile,
                 kind=VoiceSample.Kind.ORIGINAL,
@@ -123,8 +144,19 @@ class VoiceUploadView(APIView):
                 channels=meta.get("channels"),
                 validation_notes="\n".join(result.warnings),
             )
-            # V10: a valid sample puts the profile back to PENDING (Phase 21 approves it)
-            profile.status = VoiceProfile.Status.PENDING
+            VoiceSample.objects.create(
+                voice_profile=profile,
+                kind=VoiceSample.Kind.PROCESSED,
+                storage_bucket="voice-samples",
+                file_path=processed_path,
+                format="wav",
+                size_bytes=len(processed),
+                duration_sec=meta["duration_sec"],
+                sample_rate=settings.PROCESSED_SAMPLE_RATE,
+                channels=settings.PROCESSED_CHANNELS,
+            )
+            # P5: a successfully processed sample approves the profile
+            profile.status = VoiceProfile.Status.APPROVED
             profile.status_message = ""
             profile.save(update_fields=["status", "status_message", "updated_at"])
 
@@ -139,4 +171,12 @@ class VoiceUploadView(APIView):
         if not has_good_sample:
             profile.status = VoiceProfile.Status.REJECTED
             profile.status_message = reason[:255]
+            profile.save(update_fields=["status", "status_message", "updated_at"])
+
+    @staticmethod
+    def _mark_failed(profile):
+        """A processing failure must not damage a profile that already has a good sample."""
+        if not profile.samples.filter(kind=VoiceSample.Kind.ORIGINAL, is_active=True).exists():
+            profile.status = VoiceProfile.Status.FAILED
+            profile.status_message = "We could not prepare this audio."
             profile.save(update_fields=["status", "status_message", "updated_at"])

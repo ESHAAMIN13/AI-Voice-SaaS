@@ -87,3 +87,5 @@ docker-data/
 
 # ---------- Project-specific ----------
 *.local
+
+test_out.txt

@@ -6,6 +6,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
 
 from apps.accounts.models import Profile, User
+from services.audio.processing import ProcessingError
 from services.audio.test_validation import tone
 
 from .models import VoiceProfile, VoiceSample
@@ -164,10 +165,12 @@ class VoiceUpdateDeleteTests(VoiceTestBase):
         res = self.client.delete(reverse("voice-detail", args=[self.voice_id]))
         self.assertEqual(res.status_code, 200)
         self.assertFalse(VoiceProfile.objects.filter(pk=self.voice_id).exists())
+
+
 class VoiceUploadTests(VoiceTestBase):
     @classmethod
     def setUpTestData(cls):
-        # One real 12-second tone, made once. Fake bytes are now (rightly) rejected.
+        # One real 12-second tone, made once. Fake bytes are (rightly) rejected.
         cls.good_audio = tone(12)
 
     def setUp(self):
@@ -177,33 +180,60 @@ class VoiceUploadTests(VoiceTestBase):
         self.url = reverse("voice-upload", args=[self.voice_id])
 
     def audio(self, name="a.wav", content=None, ctype="audio/wav"):
-        if content is None:
-            content = self.good_audio
-        return SimpleUploadedFile(name, content, content_type=ctype)
+        data = self.good_audio if content is None else content
+        return SimpleUploadedFile(name, data, content_type=ctype)
 
     def post_file(self, f, **extra):
         return self.client.post(self.url, {"file": f, **extra}, format="multipart")
 
     @patch("apps.voices.views.storage.upload_bytes")
-    def test_upload_success_creates_sample_and_keeps_pending(self, mock_upload):
-        # The client claims 99 s, but the file is 12 s: our measurement wins (V8).
-        res = self.post_file(self.audio("original-name.wav"), duration_sec="12.5")
+    def test_upload_success_creates_two_samples_and_approves(self, mock_upload):
+        # The client claims 99 s, but the file is 12 s: our measurement wins.
+        res = self.post_file(self.audio("original-name.wav"), duration_sec="99")
         self.assertEqual(res.status_code, 201)
         self.assertAlmostEqual(res.json()["data"]["duration_sec"], 12, delta=0.5)
-        mock_upload.assert_called_once()
+        self.assertEqual(mock_upload.call_count, 2)  # original + processed
         voice = VoiceProfile.objects.get(pk=self.voice_id)
-        self.assertEqual(voice.status, "PENDING")  # U7
-        sample = voice.samples.get()
-        self.assertTrue(sample.file_path.startswith(f"{self.alice.id}/{voice.id}/"))
-        self.assertNotIn("original-name", sample.file_path)  # U5        
+        self.assertEqual(voice.status, "APPROVED")
+        original = voice.samples.get(kind="ORIGINAL")
+        self.assertTrue(original.file_path.startswith(f"{self.alice.id}/{voice.id}/"))
+        self.assertNotIn("original-name", original.file_path)  # U5
 
     @patch("apps.voices.views.storage.upload_bytes")
-    def test_new_upload_deactivates_old_sample(self, _):
+    def test_upload_creates_processed_sample(self, mock_upload):
+        res = self.post_file(self.audio())
+        self.assertEqual(res.status_code, 201)
+        proc = VoiceSample.objects.get(voice_profile_id=self.voice_id, kind="PROCESSED")
+        self.assertEqual(proc.sample_rate, 24000)
+        self.assertEqual(proc.channels, 1)
+        self.assertIn("/processed/", proc.file_path)
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_new_upload_deactivates_old_samples(self, _):
         self.assertEqual(self.post_file(self.audio()).status_code, 201)
         self.assertEqual(self.post_file(self.audio()).status_code, 201)
-        active = VoiceSample.objects.filter(voice_profile_id=self.voice_id, is_active=True)
-        self.assertEqual(active.count(), 1)
-        self.assertEqual(VoiceSample.objects.filter(voice_profile_id=self.voice_id).count(), 2)
+        samples = VoiceSample.objects.filter(voice_profile_id=self.voice_id)
+        self.assertEqual(samples.count(), 4)  # 2 uploads x (original + processed)
+        self.assertEqual(samples.filter(is_active=True).count(), 2)
+        self.assertEqual(samples.filter(is_active=True, kind="ORIGINAL").count(), 1)
+        self.assertEqual(samples.filter(is_active=True, kind="PROCESSED").count(), 1)
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_processing_failure_is_400_and_marks_failed(self, mock_upload):
+        with patch("apps.voices.views.process_audio_bytes", side_effect=ProcessingError("x")):
+            res = self.post_file(self.audio())
+        self.assertEqual(res.status_code, 400)
+        mock_upload.assert_not_called()
+        self.assertEqual(VoiceSample.objects.count(), 0)
+        self.assertEqual(VoiceProfile.objects.get(pk=self.voice_id).status, "FAILED")
+
+    @patch("apps.voices.views.storage.upload_bytes")
+    def test_processing_failure_keeps_existing_good_profile(self, mock_upload):
+        self.assertEqual(self.post_file(self.audio()).status_code, 201)
+        with patch("apps.voices.views.process_audio_bytes", side_effect=ProcessingError("x")):
+            res = self.post_file(self.audio())
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(VoiceProfile.objects.get(pk=self.voice_id).status, "APPROVED")
 
     @patch("apps.voices.views.storage.upload_bytes")
     def test_other_user_gets_404_and_nothing_uploaded(self, mock_upload):

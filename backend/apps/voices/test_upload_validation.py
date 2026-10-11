@@ -49,15 +49,16 @@ class VoiceUploadValidationTests(APITestCase):
         self.assertAlmostEqual(body["duration_sec"], 12, delta=0.5)
         self.assertEqual(body["sample_rate"], 24000)
         self.assertEqual(body["warnings"], [])
-        storage_mock.assert_called_once()
+        self.assertEqual(storage_mock.call_count, 2)  # original + processed
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.status, VoiceProfile.Status.PENDING)
-
+        self.assertEqual(self.profile.status, VoiceProfile.Status.APPROVED)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.status, VoiceProfile.Status.APPROVED)
     def test_client_duration_is_ignored(self):
         with patch(STORAGE):
             res = self.upload(self.good, duration_sec="30")
         self.assertEqual(res.status_code, 201, res.json())
-        sample = VoiceSample.objects.get(voice_profile=self.profile)
+        sample = VoiceSample.objects.get(voice_profile=self.profile, kind=VoiceSample.Kind.ORIGINAL)
         self.assertAlmostEqual(sample.duration_sec, 12, delta=0.5)
 
     def test_too_short_is_rejected_before_storage(self):
@@ -87,16 +88,16 @@ class VoiceUploadValidationTests(APITestCase):
         self.assertEqual(res.status_code, 400)
         storage_mock.assert_not_called()
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.status, VoiceProfile.Status.PENDING)
-        self.assertEqual(self.profile.samples.filter(is_active=True).count(), 1)
-
+        self.assertEqual(self.profile.status, VoiceProfile.Status.APPROVED)
+        self.assertEqual(self.profile.samples.filter(is_active=True).count(), 2)
+        
     def test_good_upload_after_rejection_clears_the_message(self):
         with patch(STORAGE):
             self.upload(self.short)
             res = self.upload(self.good)
         self.assertEqual(res.status_code, 201, res.json())
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.status, VoiceProfile.Status.PENDING)
+        self.assertEqual(self.profile.status, VoiceProfile.Status.APPROVED)
         self.assertEqual(self.profile.status_message, "")
 
     def test_warnings_are_saved_and_returned(self):
@@ -105,7 +106,7 @@ class VoiceUploadValidationTests(APITestCase):
         self.assertEqual(res.status_code, 201, res.json())
         warnings = res.json()["data"]["warnings"]
         self.assertTrue(any("silent" in w.lower() for w in warnings), warnings)
-        sample = VoiceSample.objects.get(voice_profile=self.profile)
+        sample = VoiceSample.objects.get(voice_profile=self.profile, kind=VoiceSample.Kind.ORIGINAL)
         self.assertIn("silent", sample.validation_notes.lower())
 
     def test_other_users_profile_returns_404(self):

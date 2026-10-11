@@ -166,3 +166,9 @@ AUDIO_PROBE_TIMEOUT_SECONDS = 20
 AUDIO_DECODE_TIMEOUT_SECONDS = 60
 FFMPEG_BIN = env("FFMPEG_BIN", default="ffmpeg")
 FFPROBE_BIN = env("FFPROBE_BIN", default="ffprobe")
+
+
+# Processed sample for the AI model (Phase 21). May change after Phases 23-24.
+PROCESSED_SAMPLE_RATE = 24000
+PROCESSED_CHANNELS = 1
+PROCESSED_TARGET_LUFS = -20  # gentle loudness target, no noise removal

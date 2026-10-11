@@ -61,3 +61,22 @@ These thresholds are rough guesses, not exact quality measurements.
 - A replaced sample stays in Supabase Storage until the Phase 22 cleanup.
 - The model's own requirements (Phases 23-24) may be stricter than these limits.
   If so, the model's verified requirements win.
+
+
+  
+## Processing (Phase 21)
+
+Code: `backend/services/audio/processing.py`. Settings: `PROCESSED_SAMPLE_RATE` (24000),
+`PROCESSED_CHANNELS` (1), `PROCESSED_TARGET_LUFS` (-20). These may change after the AI model
+is verified (Phases 23-24).
+
+- After validation passes, the audio is converted to WAV, mono, 24 kHz, 16-bit, with gentle
+  loudness normalisation. No noise removal or effects.
+- The original is kept unchanged. The processed file is a second `VoiceSample` row
+  (`kind=PROCESSED`), stored at `{user_id}/{profile_id}/processed/{uuid}.wav` in the private
+  `voice-samples` bucket.
+- Processing runs BEFORE anything is stored. If it fails, nothing is saved (400).
+- Success sets the profile to APPROVED. A processing failure sets it to FAILED only if the
+  profile has no good sample already.
+- Limitation: processing runs inside the upload request (max 60 s audio). It moves to
+  Celery in Phase 27.
