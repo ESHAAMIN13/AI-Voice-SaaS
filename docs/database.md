@@ -64,3 +64,10 @@ fail on Supabase's pooler (the session stays open), so always use `--keepdb`.
 
 ## Status (updated)
 Phase 12: 2 token_blacklist tables added on top of the 16 from Phase 11.
+
+
+## Storage cleanup (Phase 22)
+
+Deleting a voice profile and replacing a sample both delete the files from Supabase Storage.
+A failed delete does not fail the user's action; it is logged as `ORPHAN storage file`.
+A cleanup table is planned for Phase 46.
