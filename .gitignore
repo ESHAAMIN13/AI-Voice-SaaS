@@ -93,3 +93,6 @@ test_out.txt
 
 .venv-ai/
 ai-service/models/
+
+ai-service/samples/
+ai-service/outputs/
