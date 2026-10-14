@@ -89,3 +89,7 @@ docker-data/
 *.local
 
 test_out.txt
+
+
+.venv-ai/
+ai-service/models/
