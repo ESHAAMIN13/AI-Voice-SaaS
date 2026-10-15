@@ -25,3 +25,32 @@ Findings:
 - Peak RAM: not measured yet.
 - `requirements-ai.txt` pins torch as 2.6.0 while the installed wheel is 2.6.0+cpu.
   Check this before deployment.
+
+
+  
+## AI service (Phase 25)
+
+The model runs in its own process (`ai-service/server.py`, FastAPI + uvicorn, in `.venv-ai`),
+so Django never imports chatterbox and the two environments never conflict.
+
+Start it (separate terminal):
+
+    cd ai-service
+    .\.venv-ai\Scripts\Activate.ps1
+    uvicorn server:app --host 127.0.0.1 --port 8001
+
+Rules:
+- Listens on 127.0.0.1 only. Every `/generate` call needs the header `X-AI-Token`
+  (`AI_SERVICE_TOKEN`, same value in `ai-service/.env` and `backend/.env`).
+- Only `en` and `hi` are accepted. `ur` is rejected explicitly (model does not support it).
+- Text limit 200 characters (`TTS_MAX_TEXT_CHARS`), reference audio limit 10 MB.
+- One generation at a time; a second request gets 503 "Busy".
+- The service never receives Supabase keys. Django reads the reference sample and sends it.
+- Run with ONE worker only: each worker would load its own copy of the model.
+
+Django side: `backend/services/ai/` has the engine interface (`TTSEngine`), `HttpTTSEngine`
+(real), `FakeTTSEngine` (tests) and `check_request` (language and text rules, run before a
+job is queued). `get_engine()` is the single place that picks the engine.
+
+Measured through the service: about 61 s for a short English sentence, still far slower than
+real time. Output WAV is 32-bit float; it is converted to 16-bit in Phase 30.

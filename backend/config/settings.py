@@ -167,6 +167,13 @@ AUDIO_DECODE_TIMEOUT_SECONDS = 60
 FFMPEG_BIN = env("FFMPEG_BIN", default="ffmpeg")
 FFPROBE_BIN = env("FFPROBE_BIN", default="ffprobe")
 
+# AI service (Phase 25). The model runs in a separate process, see ai-service/.
+AI_SERVICE_URL = env("AI_SERVICE_URL", default="http://127.0.0.1:8001")
+AI_SERVICE_TOKEN = env("AI_SERVICE_TOKEN", default="")
+AI_SERVICE_TIMEOUT_SECONDS = 600  # CPU generation is slow (about 20x slower than the audio)
+TTS_MAX_TEXT_CHARS = 200
+TTS_LANGUAGES = ("en", "hi")  # only the languages verified in Phase 24
+
 
 # Processed sample for the AI model (Phase 21). May change after Phases 23-24.
 PROCESSED_SAMPLE_RATE = 24000
