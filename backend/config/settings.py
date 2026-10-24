@@ -132,7 +132,9 @@ REST_FRAMEWORK = {
         "login": "5/min",
         "register": "10/hour",
         "upload": "20/hour",
+        "generate": "10/hour",
     },
+    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
 }
 
 # JWT settings (decision J2)
@@ -173,6 +175,7 @@ AI_SERVICE_TOKEN = env("AI_SERVICE_TOKEN", default="")
 AI_SERVICE_TIMEOUT_SECONDS = 600  # CPU generation is slow (about 20x slower than the audio)
 TTS_MAX_TEXT_CHARS = 200
 TTS_LANGUAGES = ("en", "hi")  # only the languages verified in Phase 24
+GENERATION_MAX_ACTIVE_PER_USER = 3  # PENDING + PROCESSING jobs at the same time
 
 
 # Processed sample for the AI model (Phase 21). May change after Phases 23-24.

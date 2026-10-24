@@ -152,3 +152,11 @@ class ProfileTests(AuthTestBase):
         self.assertEqual(user.role, "USER")
         self.assertEqual(user.profile.full_name, "Changed")
         self.assertEqual(user.profile.preferred_language, "ur")
+
+
+
+    def test_login_is_rate_limited_after_5_attempts(self):
+        self.make_user()
+        for _ in range(5):
+            self.assertEqual(self.login(password="WrongPass").status_code, 401)
+        self.assertEqual(self.login(password="WrongPass").status_code, 429)

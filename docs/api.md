@@ -190,3 +190,32 @@ a 60-second signed link to the prepared (processed WAV) sample. The bucket stays
 Storage cleanup: deleting a profile removes all its files from storage; a new upload removes
 the replaced files. If a delete fails, the action still succeeds and the path is logged as
 `ORPHAN storage file` for later cleanup.
+
+
+
+
+## Rate limits (fixed in Phase 26)
+`ScopedRateThrottle` is now enabled globally in settings. Before this fix the limits for
+login (5/min), register (10/hour) and upload (20/hour) were written in settings but were NOT
+applied. A test now proves it: the 6th wrong login returns 429.
+
+## Generations (Phase 26)
+All endpoints are private and show only the user's own data (another user's id returns 404).
+Phase 26 only creates and reads the request. The audio is produced by the worker in Phase 28,
+so a new generation stays PENDING for now.
+
+| Method | URL | Purpose |
+|---|---|---|
+| POST | `/api/generations/` | Body: `voice_profile`, `language`, `text`. Returns 201 with status PENDING |
+| GET | `/api/generations/` | Own generations, newest first (max 100), text preview of 100 characters |
+| GET | `/api/generations/{id}/` | Full detail |
+| GET | `/api/generations/{id}/status/` | Small response for polling |
+
+Rules:
+- The voice profile must be yours, APPROVED, and have a prepared sample (else 400).
+- Languages: `en`, `hi`. `ur` is rejected with a clear message (model does not support it).
+- Text: trimmed, 1 to 200 characters.
+- `status`, `user`, `error_message` are never accepted from the client.
+- Limits: 10 creations per hour (429), and at most 3 PENDING/PROCESSING at the same time (429).
+- Usage is NOT recorded here. It is counted when a generation COMPLETES (Phase 28 and 35).
+- If the voice profile is deleted later, the history keeps the voice name (snapshot).

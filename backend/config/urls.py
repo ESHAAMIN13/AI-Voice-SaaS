@@ -34,5 +34,6 @@ urlpatterns = [
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.admin_panel.urls")),
     path("api/", include("apps.voices.urls")),
+    path("api/", include("apps.generations.urls")),
 ]
 
