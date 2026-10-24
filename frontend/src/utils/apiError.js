@@ -4,7 +4,7 @@ export function getErrorMessage(error) {
         return 'Cannot reach the server. Check your internet or try again later.'
     }
     const { status, data } = error.response
-    if (status === 429) return 'Too many attempts. Please wait a minute and try again.'
+    if (status === 429) return data?.message || 'Too many attempts. Please wait a minute and try again.'
 
     // Field errors, e.g. { password: ["This password is too common."] }
     if (data?.errors && typeof data.errors === 'object') {
