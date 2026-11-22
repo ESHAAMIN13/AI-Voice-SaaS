@@ -9,7 +9,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
-
+import sys
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -187,6 +187,17 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_RESULT_EXPIRES = 3600  # results are deleted after 1 hour
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# Cache (also used by rate limiting). Redis database 2 on port 6380.
+# Tests keep using local memory, so they never touch the real Redis.
+if "test" in sys.argv:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": env("CACHE_URL", default="redis://127.0.0.1:6380/2"),
+        }
+    }
 
 # Processed sample for the AI model (Phase 21). May change after Phases 23-24.
 PROCESSED_SAMPLE_RATE = 24000
