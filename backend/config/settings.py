@@ -177,6 +177,16 @@ TTS_MAX_TEXT_CHARS = 200
 TTS_LANGUAGES = ("en", "hi")  # only the languages verified in Phase 24
 GENERATION_MAX_ACTIVE_PER_USER = 3  # PENDING + PROCESSING jobs at the same time
 
+# Celery (Phase 27). Redis runs in the "aivoice-redis" container on port 6380.
+# Never use 6379 here: that port belongs to another program (Memurai).
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://127.0.0.1:6380/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://127.0.0.1:6380/1")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_RESULT_EXPIRES = 3600  # results are deleted after 1 hour
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Processed sample for the AI model (Phase 21). May change after Phases 23-24.
 PROCESSED_SAMPLE_RATE = 24000
