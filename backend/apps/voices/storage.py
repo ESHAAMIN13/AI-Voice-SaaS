@@ -88,3 +88,15 @@ def remove_files(items):
             delete_object(bucket, path)
         except StorageError:
             logger.error("ORPHAN storage file (delete failed): %s/%s", bucket, path)
+
+
+def download_bytes(bucket, path):
+    """Download a private file through a short-lived signed link."""
+    url = signed_url(bucket, path, expires_in=60)
+    try:
+        res = httpx.get(url, timeout=60)
+    except httpx.HTTPError as exc:
+        raise StorageError(f"Download request failed: {type(exc).__name__}") from exc
+    if res.status_code != 200:
+        raise StorageError(f"Download failed with status {res.status_code}")
+    return res.content

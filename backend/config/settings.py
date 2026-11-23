@@ -203,3 +203,8 @@ else:
 PROCESSED_SAMPLE_RATE = 24000
 PROCESSED_CHANNELS = 1
 PROCESSED_TARGET_LUFS = -20  # gentle loudness target, no noise removal
+
+GENERATED_AUDIO_BUCKET = "generated-audio"
+GENERATION_RETRY_MAX = 3  # only when the AI service says "busy"
+GENERATION_RETRY_DELAY_SECONDS = 30
+GENERATION_STUCK_MINUTES = 15  # older PROCESSING jobs are treated as dead
