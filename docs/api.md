@@ -219,3 +219,8 @@ Rules:
 - Limits: 10 creations per hour (429), and at most 3 PENDING/PROCESSING at the same time (429).
 - Usage is NOT recorded here. It is counted when a generation COMPLETES (Phase 28 and 35).
 - If the voice profile is deleted later, the history keeps the voice name (snapshot).
+### Generation jobs (Phase 28)
+POST /api/generations/ now also queues the background job. If the queue is unavailable the
+generation is marked FAILED and the response is 503. Status values: PENDING, PROCESSING,
+COMPLETED, FAILED. Poll GET /api/generations/{id}/status/ (the frontend polling comes in Phase 29).
+When a generation completes a usage record (characters) is created.
