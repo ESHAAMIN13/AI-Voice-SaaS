@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 GENERIC_FAILURE = "We could not create the audio. Please try again."
 VOICE_GONE = "This voice is no longer available."
 BUSY_FAILURE = "The voice service is busy. Please try again in a few minutes."
-
+QUEUE_FAILURE = "The voice service was unavailable. Please try again."
+STUCK_FAILURE = "This took too long and was stopped. Please try again."
 
 def claim(generation_id):
     """W-3: PENDING -> PROCESSING in one step. Only one worker can win this."""

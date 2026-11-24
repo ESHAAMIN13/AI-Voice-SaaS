@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
@@ -18,6 +20,10 @@ class GenerationTestBase(APITestCase):
         self.bob = self.make_user("bob@example.com")
         self.client.force_authenticate(user=self.alice)
         self.voice = self.make_voice(self.alice)
+        # Safety net: no test may ever put a real job into the real queue
+        patcher = patch("apps.generations.views.generate_audio.delay")
+        self.delay = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def make_user(self, email):
         user = User.objects.create_user(email=email, password=PASSWORD)
@@ -66,6 +72,24 @@ class GenerationCreateTests(GenerationTestBase):
         generation = Generation.objects.get()
         self.assertEqual(generation.user, self.alice)
         self.assertEqual(generation.input_text, "Hello world")
+
+    def test_creating_queues_the_job(self):
+        res = self.create()
+        self.assertEqual(res.status_code, 201)
+        self.delay.assert_called_once_with(str(Generation.objects.get().id))
+
+    def test_rejected_request_is_not_queued(self):
+        self.assertEqual(self.create(language="ur").status_code, 400)
+        self.delay.assert_not_called()
+
+    def test_queue_down_marks_failed_and_returns_503(self):
+        self.delay.side_effect = Exception("redis is down at 127.0.0.1:6380")
+        res = self.create()
+        self.assertEqual(res.status_code, 503)
+        self.assertNotIn("127.0.0.1", res.content.decode())  # no internal details
+        generation = Generation.objects.get()
+        self.assertEqual(generation.status, "FAILED")
+        self.assertIn("unavailable", generation.error_message)
 
     def test_client_cannot_set_status_user_or_error(self):
         res = self.create(status="COMPLETED", user=str(self.bob.id), error_message="x")

@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -6,6 +8,7 @@ from rest_framework.views import APIView
 
 from config.responses import error_response, success_response
 
+from . import runner
 from .models import Generation
 from .serializers import (
     GenerationCreateSerializer,
@@ -13,6 +16,9 @@ from .serializers import (
     GenerationListSerializer,
     GenerationStatusSerializer,
 )
+from .tasks import generate_audio
+
+logger = logging.getLogger(__name__)
 
 
 class GenerationListCreateView(APIView):
@@ -45,7 +51,22 @@ class GenerationListCreateView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        generation = serializer.save()
+        generation = serializer.save()  # committed right away (no ATOMIC_REQUESTS)
+
+        # W-9: if the queue (Redis) is down, never leave a job stuck in PENDING
+        try:
+            generate_audio.delay(str(generation.id))
+        except Exception:
+            logger.exception("Could not queue generation %s", generation.id)
+            runner.mark_failed(
+                generation.id,
+                runner.QUEUE_FAILURE,
+                from_statuses=(Generation.Status.PENDING,),
+            )
+            return error_response(
+                "The voice service is temporarily unavailable. Please try again later.",
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return success_response(
             GenerationDetailSerializer(generation).data, status=status.HTTP_201_CREATED
         )

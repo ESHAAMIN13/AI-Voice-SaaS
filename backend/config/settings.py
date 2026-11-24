@@ -199,6 +199,11 @@ else:
         }
     }
 
+if "test" in sys.argv:
+    # Safety net: a forgotten .delay() in a test must never reach the real Redis
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
+
 # Processed sample for the AI model (Phase 21). May change after Phases 23-24.
 PROCESSED_SAMPLE_RATE = 24000
 PROCESSED_CHANNELS = 1
