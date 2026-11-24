@@ -213,3 +213,12 @@ GENERATED_AUDIO_BUCKET = "generated-audio"
 GENERATION_RETRY_MAX = 3  # only when the AI service says "busy"
 GENERATION_RETRY_DELAY_SECONDS = 30
 GENERATION_STUCK_MINUTES = 15  # older PROCESSING jobs are treated as dead
+# httpx logs full URLs at INFO level, and signed storage URLs contain a token.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "loggers": {
+        "httpx": {"level": "WARNING"},
+        "httpcore": {"level": "WARNING"},
+    },
+}
