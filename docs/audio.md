@@ -80,3 +80,21 @@ is verified (Phases 23-24).
   profile has no good sample already.
 - Limitation: processing runs inside the upload request (max 60 s audio). It moves to
   Celery in Phase 27.
+## Generated audio (Phase 30)
+
+Code: `backend/services/audio/output.py`, used by `apps/generations/runner.py`.
+
+- The AI service returns a 32-bit float WAV. Before upload it is converted with FFmpeg to
+  16-bit PCM mono at 24 kHz (`GENERATED_AUDIO_SAMPLE_RATE`). Every browser plays it, and the
+  file is about half the size.
+- The real duration is measured with ffprobe and saved in `GeneratedAudio.duration_sec`,
+  together with `sample_rate`. Nothing is guessed.
+- Conversion happens BEFORE upload. If it fails (or the file is over 20 MB,
+  `GENERATED_AUDIO_MAX_BYTES`) the generation is FAILED with a safe message and nothing is stored.
+- A completed generation records two usage rows: CHARS (text length) and SECONDS (audio length).
+- `apps/generations/files.py: remove_generation_files()` deletes the stored audio of one
+  generation. The delete endpoint that uses it comes with History (Phase 31).
+
+Limitations: voice quality after the 16-bit conversion was not compared by ear yet
+(playback links come in Phase 33). Replaced or failed files are cleaned only when the
+helper above is called.
