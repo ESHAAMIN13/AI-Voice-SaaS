@@ -49,7 +49,7 @@ class RunnerTests(GenerationTestBase):
         audio = GeneratedAudio.objects.get(generation=generation)
         self.assertEqual(audio.storage_bucket, "generated-audio")
         self.assertTrue(audio.file_path.startswith(f"{self.alice.id}/{generation.id}/"))
-        usage = UsageRecord.objects.get(generation=generation)
+        usage = UsageRecord.objects.get(generation=generation, unit_type="CHARS")
         self.assertEqual(usage.unit_type, "CHARS")
         self.assertEqual(int(usage.amount), generation.char_count)
         self.assertEqual(engine.calls, [("Hello world", "en", 3)])
@@ -68,7 +68,7 @@ class RunnerTests(GenerationTestBase):
             first = runner.run_generation(generation.id, engine=FakeTTSEngine())
             second = runner.run_generation(generation.id, engine=FakeTTSEngine())
         self.assertEqual((first, second), ("completed", "skipped"))
-        self.assertEqual(UsageRecord.objects.filter(generation=generation).count(), 1)
+        self.assertEqual(UsageRecord.objects.filter(generation=generation).count(), 2)
         self.assertEqual(GeneratedAudio.objects.filter(generation=generation).count(), 1)
 
     def test_deleted_voice_fails_safely_without_usage(self):

@@ -1,4 +1,4 @@
-"""The work of one generation job (Phase 28).
+"""The work of one generation job (Phase 28, audio output Phase 30).
 
 No Celery in this file, so it is easy to test. The task in tasks.py only calls it.
 """
@@ -14,6 +14,7 @@ from apps.usage.models import UsageRecord
 from apps.voices import storage
 from apps.voices.models import VoiceSample
 from services.ai import TTSBusyError, get_engine
+from services.audio.output import convert_output_wav
 
 from .models import GeneratedAudio, Generation
 
@@ -24,6 +25,7 @@ VOICE_GONE = "This voice is no longer available."
 BUSY_FAILURE = "The voice service is busy. Please try again in a few minutes."
 QUEUE_FAILURE = "The voice service was unavailable. Please try again."
 STUCK_FAILURE = "This took too long and was stopped. Please try again."
+
 
 def claim(generation_id):
     """W-3: PENDING -> PROCESSING in one step. Only one worker can win this."""
@@ -72,9 +74,13 @@ def run_generation(generation_id, engine=None):
             return "failed"
 
         reference = storage.download_bytes(sample.storage_bucket, sample.file_path)
-        wav = (engine or get_engine()).generate(
+        raw = (engine or get_engine()).generate(
             generation.input_text, generation.language, reference
         )
+
+        # Phase 30: 16-bit mono WAV and a really measured length. A failure here happens
+        # BEFORE anything is stored, so no half-finished file can be left behind.
+        wav, meta = convert_output_wav(raw)
 
         path = f"{generation.user_id}/{generation.id}/{uuid.uuid4()}.wav"
         storage.upload_bytes(bucket, path, wav, "audio/wav")
@@ -86,6 +92,8 @@ def run_generation(generation_id, engine=None):
                 file_path=path,
                 format="wav",
                 size_bytes=len(wav),
+                duration_sec=meta["duration_sec"],
+                sample_rate=meta["sample_rate"],
             )
             now = timezone.now()
             Generation.objects.filter(pk=generation_id).update(
@@ -94,12 +102,18 @@ def run_generation(generation_id, engine=None):
                 finished_at=now,
                 updated_at=now,
             )
-            # W-5: usage counts only for a finished generation
+            # W-5: usage counts only for a finished generation (characters and seconds)
             UsageRecord.objects.create(
                 user=generation.user,
                 generation=generation,
                 unit_type=UsageRecord.UnitType.CHARS,
                 amount=generation.char_count,
+            )
+            UsageRecord.objects.create(
+                user=generation.user,
+                generation=generation,
+                unit_type=UsageRecord.UnitType.SECONDS,
+                amount=meta["duration_sec"],
             )
         return "completed"
     except TTSBusyError:
