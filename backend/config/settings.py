@@ -226,3 +226,5 @@ LOGGING = {
 # Generated audio (Phase 30): stored as 16-bit mono WAV, same size limit as the bucket
 GENERATED_AUDIO_SAMPLE_RATE = 24000
 GENERATED_AUDIO_MAX_BYTES = 20 * 1024 * 1024
+
+GENERATION_HISTORY_PAGE_SIZE = 20  # fixed on the server, the client cannot change it
