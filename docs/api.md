@@ -224,3 +224,25 @@ POST /api/generations/ now also queues the background job. If the queue is unava
 generation is marked FAILED and the response is 503. Status values: PENDING, PROCESSING,
 COMPLETED, FAILED. Poll GET /api/generations/{id}/status/ (the frontend polling comes in Phase 29).
 When a generation completes a usage record (characters) is created.
+
+### Generation history (Phase 31)
+All private, own data only (another user's id returns 404).
+
+| Method | URL | Purpose |
+|---|---|---|
+| GET | `/api/generations/history/` | Paged history: 20 per page, newest first |
+| DELETE | `/api/generations/{id}/` | Delete one generation and its stored audio |
+
+History query: `?page=N` (default 1) and optional `?status=COMPLETED|FAILED|PENDING|PROCESSING`.
+Page size is fixed on the server. A page past the last one returns an empty list.
+Invalid page or status returns 400. Response: `{ items, page, pages, count }`. Each item has
+id, voice_name, language, text_preview (100 characters), char_count, status, error_message,
+created_at, finished_at, duration_sec and has_audio. The full text is only in the detail endpoint.
+
+Delete rules:
+- Only COMPLETED or FAILED generations can be deleted. PENDING or PROCESSING returns 409.
+- The row and its audio record are deleted, then the file is removed from storage. A failed
+  storage delete does not fail the request (it is logged as an ORPHAN file).
+- Usage records are kept (their generation link becomes empty), so history cleanup never
+  lowers what a user has already used.
+- Play and download links come in Phases 32 and 33.
